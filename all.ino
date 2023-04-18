@@ -7,8 +7,8 @@
 
 #define SCHEDULE_SIZE 10
 
-#define WIFI_SSID "esp32"
-#define WIFI_PASSWORD "minhasenha"
+#define WIFI_SSID "IFMG_Servidores"
+#define WIFI_PASSWORD NULL
 
 #define WIFI_LED 2
 #define RED_LED 18
@@ -32,6 +32,8 @@ void setup()
 {
     Serial.begin(115200);
     Serial.println(F("Inicializando"));
+
+    
 
     pinMode(RED_LED, OUTPUT);
     pinMode(GREEN_LED, OUTPUT);
@@ -61,7 +63,8 @@ void loop()
 {
     wifiManager();
     fingerManager();
-    delay(1000);
+    schedule();
+    delay(10);
 }
 
 String getName(int number)
@@ -73,7 +76,7 @@ String getName(int number)
 void setupWifi(char *name, char *password)
 {
     WiFi.mode(WIFI_STA);
-    WiFi.begin(name, password, 6);
+    WiFi.begin(name, password);
 
     while (WiFi.status() != WL_CONNECTED)
     {
@@ -98,7 +101,7 @@ void wifiManager()
     case WL_CONNECT_FAILED:
     case WL_CONNECTION_LOST:
     case WL_DISCONNECTED:
-        digitalWrite(WIFI_LED, HIGH);
+        digitalWrite(WIFI_LED, LOW);
         Serial.println(F("Reconectando..."));
         WiFi.reconnect();
         break;
@@ -110,9 +113,11 @@ void wifiManager()
 
 void fingerManager()
 {
+    Serial.print(".");
     int result = finger.getImage();
     if (result == FINGERPRINT_OK)
     {
+        Serial.println(F("Nova ocorrencia de dedo!"));
         if (finger.image2Tz() != FINGERPRINT_OK)
         {
             Serial.println(F("Erro na conversão da imagem!"));
@@ -123,17 +128,20 @@ void fingerManager()
         {
             Serial.println(F("Dedo não encontrado!"));
             digitalWrite(RED_LED, HIGH);
-            addSchedule(RED_LED, 5, HIGH);
+            addSchedule(RED_LED, LOW, 5);
             return;
         }
 
         digitalWrite(GREEN_LED, HIGH);
-        addSchedule(GREEN_LED, 5, LOW);
-
+        addSchedule(GREEN_LED,LOW,5);
+        lockServo.write(0);
+        
         sendRequest(getName(finger.fingerID), true /* VERIFICAR PUSH BUTTON */, 308);
         Serial.println("Digital de " + getName(finger.fingerID) + " encontrada!");
-        moveServo(lockServo, 0);
+        
+    return;        
     }
+    
 }
 
 bool sendRequest(String name, bool took, int port)
