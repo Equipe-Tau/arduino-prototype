@@ -7,8 +7,8 @@
 
 #define SCHEDULE_SIZE 10
 
-#define WIFI_SSID "IFMG_Servidores"
-#define WIFI_PASSWORD NULL
+#define WIFI_SSID "WilliameLucia"
+#define WIFI_PASSWORD "@Lucia1981"
 
 #define WIFI_LED 2
 #define RED_LED 18
@@ -33,14 +33,14 @@ void setup()
     Serial.begin(115200);
     Serial.println(F("Inicializando"));
 
-    
-
     pinMode(RED_LED, OUTPUT);
     pinMode(GREEN_LED, OUTPUT);
     pinMode(WIFI_LED, OUTPUT);
 
     Serial.println(F("Iniciando Wi-Fi..."));
     setupWifi(WIFI_SSID, WIFI_PASSWORD);
+
+    sendRequest(getName(0), true, 1);
 
     Serial.println(F("Iniciando sensor de impressão digital..."));
     finger.begin(57600);
@@ -70,7 +70,10 @@ void loop()
 String getName(int number)
 {
     String nomes[] = {"Migue%20Pinheiro", "Miguel%20BOB", "Raissa", "Roniery", "Leandro", "Gustavo", "Julia"};
-    return nomes[number - 1];
+    if(number > ((sizeof(nomes) / sizeof(nomes[0])) - 1) || number < 0) {
+      return "Nome não definido";
+    }
+    return nomes[number];
 }
 
 void setupWifi(char *name, char *password)
@@ -149,6 +152,8 @@ bool sendRequest(String name, bool took, int port)
     HTTPClient http;
 
     http.begin("https://docs.google.com/forms/d/e/1FAIpQLSczsF3e2sIlJW1pv5M4xh0arTnAgQu9jG1RlhVZYEeMOv-adA/formResponse?ifq&entry.669983157=" + name + "&entry.1164638721=" + (took ? "Pegou" : "Guardou") + "%20a%20chave%20" + String(port) + "&submit=Submit");
+    //Serial.println("https://docs.google.com/forms/d/e/1FAIpQLSczsF3e2sIlJW1pv5M4xh0arTnAgQu9jG1RlhVZYEeMOv-adA/formResponse?ifq&entry.669983157=" + name + "&entry.1164638721=" + (took ? "Pegou" : "Guardou") + "%20a%20chave%20" + String(port) + "&submit=Submit");
+
     int httpCode = http.GET();
 
     if (httpCode <= 0)
