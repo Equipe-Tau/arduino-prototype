@@ -7,21 +7,99 @@
 
 #define SCHEDULE_SIZE 10
 
-#define WIFI_SSID "IFMG_Servidores"
-#define WIFI_PASSWORD NULL
+#define WIFI_SSID "Lucia"
+#define WIFI_PASSWORD "@Lucia1981"
 
 #define WIFI_LED 2
 #define RED_LED 18
 #define GREEN_LED 22
 
 #define LOCK_SERVO_PORT 26
-#define LOCK_SERVO_OPENED 130
-#define LOCK_SERVO_CLOSED 0
+#define LOCK_SERVO_OPENED 250 // ELE NO TOPO
+#define LOCK_SERVO_CLOSED 100 // ELE PRA BAIXO
 
 #define PUSH_BUTTON 15
 
 Adafruit_Fingerprint finger = Adafruit_Fingerprint(&Serial2);
 Servo lockServo;
+
+
+/*
+ * PARTE DE SCHEDULE (AGENDAMENTO DE TAREFAS)
+ */
+
+typedef struct
+{
+  int port;
+  int time;
+  int state;
+} Schedule;
+
+Schedule schedules[SCHEDULE_SIZE];
+
+void schedule() {
+  int now = millis();
+  for (int i = 0; i < (sizeof(schedules) / sizeof(schedules[0])); i++) {
+    Schedule currentSchedule = schedules[i];
+    if ((currentSchedule.time - now) <= 0) {
+      digitalWrite(currentSchedule.port, currentSchedule.state);
+      schedules[i] = { 0, 0, 0 };
+    }
+  }
+}
+
+bool addSchedule(int port, int state, int toSeconds) {
+  int now = millis();
+  Schedule newSchedule = { port, now + (toSeconds * 1000), state };
+
+  for (int i = 0; i < (sizeof(schedules) / sizeof(schedules[0])); i++) {
+    Schedule currentSchedule = schedules[i];
+    if ((currentSchedule.time - now) <= 0) {
+      schedules[i] = newSchedule;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+void wifiManager() {
+  switch (WiFi.status()) {
+    case WL_CONNECTED:
+      digitalWrite(WIFI_LED, HIGH);
+      break;
+    case WL_NO_SSID_AVAIL:
+      Serial.println(F("Rede não encontrada"));
+      break;
+    case WL_CONNECT_FAILED:
+    case WL_CONNECTION_LOST:
+    case WL_DISCONNECTED:
+      digitalWrite(WIFI_LED, LOW);
+      Serial.println(F("Reconectando..."));
+      WiFi.reconnect();
+      break;
+    default:
+      Serial.println(F("Rede ociosa..."));
+      break;
+  }
+}
+
+void setupWifi(char *name, char *password) {
+
+  Serial.println(F("Conectando ao Wi-Fi..."));
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(name, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(100);
+    Serial.print(".");
+  }
+
+  digitalWrite(WIFI_LED, HIGH);
+  Serial.println(F("\nConectado!"));
+}
+
 
 void setup() {
   Serial.begin(115200);
@@ -46,7 +124,7 @@ void setup() {
 
   Serial.println(F("Iniciando servo..."));
   lockServo.attach(LOCK_SERVO_PORT);
-  moveServo(lockServo, LOCK_SERVO_OPENED);
+  
 }
 
 void loop() {
@@ -64,45 +142,9 @@ String getName(int number) {
   return nomes[number];
 }
 
-void setupWifi(char *name, char *password) {
-
-  Serial.println(F("Conectando ao Wi-Fi..."));
-
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(name, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(100);
-    Serial.print(".");
-  }
-
-  digitalWrite(WIFI_LED, HIGH);
-  Serial.println(F("\nConectado!"));
-}
-
-void wifiManager() {
-  switch (WiFi.status()) {
-    case WL_CONNECTED:
-      digitalWrite(WIFI_LED, HIGH);
-      break;
-    case WL_NO_SSID_AVAIL:
-      Serial.println(F("Rede não encontrada"));
-      break;
-    case WL_CONNECT_FAILED:
-    case WL_CONNECTION_LOST:
-    case WL_DISCONNECTED:
-      digitalWrite(WIFI_LED, LOW);
-      Serial.println(F("Reconectando..."));
-      WiFi.reconnect();
-      break;
-    default:
-      Serial.println(F("Rede ociosa..."));
-      break;
-  }
-}
 
 void fingerManager() {
-  Serial.print(F("*"));
+  //Serial.print(F("*"));
 
   int result = finger.getImage();
   if (result == FINGERPRINT_OK) {
@@ -147,51 +189,15 @@ bool sendRequest(String name, bool took, int port) {
   return true;
 }
 
-
+int degree = 0;
 
 void moveServo(Servo servo, int target) {
-  int current = servo.read();
+  int current = degree;
   int increase = current < target;
-  for (int i = current; (increase ? (i <= target) : (i >= target)); (increase ? i++ : i--)) {
-    servo.write(i);
+  for (int i = current; (increase ? (i < target) : (i > target)); (increase ? i++ : i--)) {
+    degree = i;
+    Serial.println("To ");
+    Serial.println(i);
+    servo.write(i);    
   }
-}
-
-/*
- * PARTE DE SCHEDULE (AGENDAMENTO DE TAREFAS)
- */
-
-typedef struct
-{
-  int port;
-  int time;
-  int state;
-} Schedule;
-
-Schedule schedules[SCHEDULE_SIZE];
-
-void schedule() {
-  int now = millis();
-  for (int i = 0; i < (sizeof(schedules) / sizeof(schedules[0])); i++) {
-    Schedule currentSchedule = schedules[i];
-    if ((currentSchedule.time - now) <= 0) {
-      digitalWrite(currentSchedule.port, currentSchedule.state);
-      schedules[i] = { 0, 0, 0 };
-    }
-  }
-}
-
-bool addSchedule(int port, int state, int toSeconds) {
-  int now = millis();
-  Schedule newSchedule = { port, now + (toSeconds * 1000), state };
-
-  for (int i = 0; i < (sizeof(schedules) / sizeof(schedules[0])); i++) {
-    Schedule currentSchedule = schedules[i];
-    if ((currentSchedule.time - now) <= 0) {
-      schedules[i] = newSchedule;
-    }
-    return true;
-  }
-
-  return false;
 }
