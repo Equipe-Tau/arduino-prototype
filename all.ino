@@ -7,8 +7,8 @@
 
 #define SCHEDULE_SIZE 10
 
-#define WIFI_SSID "Lucia"
-#define WIFI_PASSWORD "@Lucia1981"
+#define WIFI_SSID "IFMG_Servidores"
+#define WIFI_PASSWORD null
 
 #define WIFI_LED 2
 #define RED_LED 18
@@ -28,11 +28,15 @@ Servo lockServo;
  * PARTE DE SCHEDULE (AGENDAMENTO DE TAREFAS)
  */
 
+const int TYPE_DIGITAL = 0;
+const int TYPE_SERVO = 1;
+
 typedef struct
 {
   int port;
   int time;
   int state;
+  int type;
 } Schedule;
 
 Schedule schedules[SCHEDULE_SIZE];
@@ -41,23 +45,31 @@ void schedule() {
   int now = millis();
   for (int i = 0; i < (sizeof(schedules) / sizeof(schedules[0])); i++) {
     Schedule currentSchedule = schedules[i];
-    if ((currentSchedule.time - now) <= 0) {
-      digitalWrite(currentSchedule.port, currentSchedule.state);
-      schedules[i] = { 0, 0, 0 };
+    if (!(!currentSchedule.state && !currentSchedule.port) && (currentSchedule.time - now) <= 0) {
+      switch (currentSchedule.type) {
+        case TYPE_DIGITAL: 
+          digitalWrite(currentSchedule.port, currentSchedule.state);
+        break;
+        case TYPE_SERVO:
+          lockServo.write(currentSchedule.state);
+        break;
+      }
+      
+      schedules[i] = { 0, 0, 0, 0 };
     }
   }
 }
 
-bool addSchedule(int port, int state, int toSeconds) {
+bool addSchedule(int port, int state, int toSeconds, int type) {
   int now = millis();
-  Schedule newSchedule = { port, now + (toSeconds * 1000), state };
+  Schedule newSchedule = { port, now + (toSeconds * 1000), state, type };
 
-  for (int i = 0; i < (sizeof(schedules) / sizeof(schedules[0])); i++) {
+  for (int i = 0; i < SCHEDULE_SIZE; i++) {
     Schedule currentSchedule = schedules[i];
-    if ((currentSchedule.time - now) <= 0) {
+    if ((currentSchedule.time - now) <= 0 || !currentSchedule.time) {
       schedules[i] = newSchedule;
+      return true;
     }
-    return true;
   }
 
   return false;
@@ -111,7 +123,7 @@ void setup() {
 
   setupWifi(WIFI_SSID, WIFI_PASSWORD);
 
-  sendRequest("Iniciando...", true, 1);
+  //sendRequest("Iniciando...", true, 1);
 
   Serial.println(F("Iniciando sensor de impressão digital..."));
   finger.begin(57600);
@@ -124,7 +136,7 @@ void setup() {
 
   Serial.println(F("Iniciando servo..."));
   lockServo.attach(LOCK_SERVO_PORT);
-  
+  lockServo.write(LOCK_SERVO_CLOSED);
 }
 
 void loop() {
@@ -135,11 +147,11 @@ void loop() {
 }
 
 String getName(int number) {
-  String nomes[] = { "Migue%20Pinheiro", "Miguel%20BOB", "Raissa", "Roniery", "Leandro", "Gustavo", "Julia" };
-  if (number > ((sizeof(nomes) / sizeof(nomes[0])) - 1) || number < 0) {
-    return "Nome não definido";
+  String nomes[] = { "Miguel%20Pinheiro", "Miguel%20BOB", "Raissa", "Roniery", "Leandro", "Gustavo", "Julia" };
+  if (number > ((sizeof(nomes) / sizeof(nomes[0])) - 1) || number < 1) {
+    return "Desconhecido";
   }
-  return nomes[number];
+  return nomes[number - 1];
 }
 
 
@@ -157,13 +169,15 @@ void fingerManager() {
     if (finger.fingerFastSearch() != FINGERPRINT_OK) {
       Serial.println(F("Dedo não encontrado!"));
       digitalWrite(RED_LED, HIGH);
-      addSchedule(RED_LED, LOW, 5);
+      addSchedule(RED_LED, LOW, 5, TYPE_DIGITAL);
       return;
     }
 
+    lockServo.write(LOCK_SERVO_OPENED);
     digitalWrite(GREEN_LED, HIGH);
-    addSchedule(GREEN_LED, LOW, 5);
-    lockServo.write(LOCK_SERVO_CLOSED);
+    addSchedule(GREEN_LED, LOW, 5, TYPE_DIGITAL);
+    addSchedule(-1, LOCK_SERVO_CLOSED, 5, TYPE_SERVO);
+    
 
     sendRequest(getName(finger.fingerID), true /* VERIFICAR PUSH BUTTON */, 308);
     Serial.println("Digital de " + getName(finger.fingerID) + " encontrada!");
@@ -189,15 +203,3 @@ bool sendRequest(String name, bool took, int port) {
   return true;
 }
 
-int degree = 0;
-
-void moveServo(Servo servo, int target) {
-  int current = degree;
-  int increase = current < target;
-  for (int i = current; (increase ? (i < target) : (i > target)); (increase ? i++ : i--)) {
-    degree = i;
-    Serial.println("To ");
-    Serial.println(i);
-    servo.write(i);    
-  }
-}
