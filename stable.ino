@@ -165,13 +165,13 @@ void wifiHandler (void * parameter ) {
       case WL_DISCONNECTED:
         digitalWrite(WIFI_LED, LOW);
         Serial.println(F("Reconectando..."));
-        WiFi.begin(WIFI_SSID, WIFI_PASSWORD, 6);
+        //WiFi.reconnect();
         break;
       default:
         Serial.println(F("Rede ociosa..."));
         break;
     }
-    delay(10);
+    delay(1000);
   }
 }
 
