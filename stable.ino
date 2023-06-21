@@ -7,8 +7,8 @@
 
 #define MAX_LISTENERS 20 
 
-#define WIFI_SSID "solar"
-#define WIFI_PASSWORD "ifmg2019"
+#define WIFI_SSID "IFMG_Servidores"
+#define WIFI_PASSWORD NULL
 
 #define WIFI_LED 2
 #define RED_LED 18
